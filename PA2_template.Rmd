@@ -1,0 +1,218 @@
+---
+title: "The Data Analysis For United States Historial Weateher Events"
+author: "Dao"
+date: "2022-08-31"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## Synopsis
+
+####    This analysis is about to find out the real impact of weather events bewteen 1950 and November 2011 from the U.S. National Oceanic and Atmospheric Administration“s (NOAA) storm database. We mainly measure the fatalities and the injuries that are most harmful to the population health and furthermore we measure the greatest economic impact to the property and crop by this type of events. The conclusion based on the NOAA data is that TORNADO is the most harmful to population health and in term of the great economic impact is FLOOD.
+
+### Load packages
+```{r load all package}
+library (wordcloud2)
+library (tidyverse)
+library (gridExtra)
+```
+
+### The U.S. National Oceanic and Atmospheric Administration“s (NOAA) storm data.
+```{r storm data}
+## data source <- https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2
+## storm data documentary about variables defined and more <- 
+## https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2FNCDC%20Storm%20Events-FAQ%20Page.pdf
+## https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf
+sd <- read.csv("repdata_data_StormData.csv")
+colnames(sd)
+```
+
+### The processing of tidy data.
+
+####    According to the defination of variables that we have to subset into different dataset by SEVEN columns only (“EVTYPE”, “FATALITIES”, “INJURIES”, “PROPDMG”, “PROPDMGEXP”,“CROPDMG” and “CROPDMGEXP”) for data analysis.
+
+```{r subset 1}
+
+# 1. Subset data for "FATALITIES" analysis
+sdftl <- sd %>%  
+        select (EVTYPE, FATALITIES) %>% 
+        filter (!EVTYPE == "?" & !FATALITIES == 0)
+```
+
+```{r subset 2}
+
+# 2. Subset data for "INJURIES" analysis
+sdijr <- sd %>%
+        select (EVTYPE, INJURIES) %>% 
+        filter (!EVTYPE == "?" & !INJURIES == 0)
+```
+
+```{r subset 3}
+
+# 3. Subset data for "Property Damage" analysis
+
+sdpdam <- sd %>% 
+        select(EVTYPE,PROPDMG,PROPDMGEXP) %>% 
+        filter(!PROPDMG == 0 & PROPDMGEXP %in% c("K","M","B"))
+
+# There is an explanation about the alphabetical characters used to signify magnitude include “K” for thousands, “M” for millions, and “B” for billions in the storm data documentation (ref: Pg.12 - Chapter 2.7 Damage ).
+
+for (i in 1:nrow(sdpdam)){
+        if (sdpdam$PROPDMGEXP[i] == "K"){
+                sdpdam$DMG[i] <- sdpdam$PROPDMG[i] * 1000
+         } else if (sdpdam$PROPDMGEXP[i] == "M"){
+               sdpdam$DMG[i] <- sdpdam$PROPDMG[i] * 1000000
+         } else if (sdpdam$PROPDMGEXP[i] == "B"){
+                sdpdam$DMG[i] <- sdpdam$PROPDMG[i] * 1000000000
+         }      
+}          
+        
+```
+
+```{r subset 4}
+
+# 4. Subset data for "Crop Damage" analysis
+
+sdcdam <- sd %>% 
+        select(EVTYPE,CROPDMG,CROPDMGEXP) %>% 
+        filter(!CROPDMG == 0 & CROPDMGEXP %in% c("K","M","B"))
+
+# There is an explanation about the alphabetical characters used to signify magnitude include “K” for thousands, “M” for millions, and “B” for billions in the storm data documentation (ref: Pg.12 - Chapter 2.7 Damage ).
+
+for (i in 1:nrow(sdcdam)){
+        if (sdcdam$CROPDMGEXP[i] == "K"){
+                sdcdam$DMG[i] <- sdcdam$CROPDMG[i] * 1000
+         } else if (sdcdam$CROPDMGEXP[i] == "M"){
+               sdcdam$DMG[i] <- sdcdam$CROPDMG[i] * 1000000
+         } else if (sdcdam$CROPDMGEXP[i] == "B"){
+                sdcdam$DMG[i] <- sdcdam$CROPDMG[i] * 1000000000
+         }      
+}          
+
+```
+
+## Results
+
+### The processing of data analysis 
+
+#### 1. Across the United States, which types of events ("EVTYPE" variable) are most harmful with respect to population health?
+
+```{r Fatalities}
+
+# Use subset "sdftl" to process the analysis
+
+sdftl <- sdftl %>%
+        select(EVTYPE,FATALITIES) %>% 
+        group_by (EVTYPE) %>% 
+        summarise (TOTAL.FATALITIES = sum (FATALITIES)) %>% 
+        arrange (desc(TOTAL.FATALITIES))
+
+# we only consider the top 20 weather events.
+sdftl <- slice(sdftl,1:20) 
+
+head(sdftl)
+```
+
+```{r Injuries}
+
+# Use subset "sdijr" to process the analysis
+
+sdijr <- sdijr %>%
+        select(EVTYPE,INJURIES) %>% 
+        group_by (EVTYPE) %>% 
+        summarise (TOTAL.INJURIES = sum (INJURIES)) %>% 
+        arrange (desc(TOTAL.INJURIES))
+
+# we only consider the top 20 weather events.
+sdijr <- slice(sdijr,1:20) 
+
+head(sdijr)
+```
+
+```{r plot 1 and 2, echo=TRUE}
+
+sdftl$EVTYPE <- factor(sdftl$EVTYPE, levels = sdftl$EVTYPE[order(-sdftl$TOTAL.FATALITIES)])
+plot1 <- ggplot(sdftl, aes(EVTYPE,TOTAL.FATALITIES),fill=TOTAL.FATALITIES)+geom_bar(stat = "identity",color="black",fill="yellow")+theme(axis.text.x = element_text(angle = 90, hjust = 1,vjust = 0.5))+labs(title="Total Number of Fatalities by Event Type")+labs(x="Event Type",y="Number of Fatalities")+theme(plot.title = element_text(hjust = 0.5,size = 10, face = "bold"),axis.text.x= element_text(size=7),axis.title.x=element_text(size=8),axis.title.y=element_text(size=9))
+
+sdijr$EVTYPE <- factor(sdijr$EVTYPE, levels = sdijr$EVTYPE[order(-sdijr$TOTAL.INJURIES)])
+plot2 <- ggplot(sdijr, aes(EVTYPE,TOTAL.INJURIES),fill=TOTAL.INJURIES)+geom_bar(stat = "identity",color="black",fill="yellow")+theme(axis.text.x = element_text(angle = 90, hjust = 1,vjust = 0.5))+labs(title="Total Number of Injuries by Event Type")+labs(x="Event Type",y="Number of Injuries")+theme(plot.title = element_text(hjust = 0.5,size = 10, face = "bold"),axis.text.x= element_text(size=7),axis.title.x=element_text(size=8),axis.title.y=element_text(size=9))
+
+grid.arrange(plot1, plot2, ncol=2)
+
+```
+
+#### 2. Which types of events have the greatest economic consequences?
+
+```{r Property Damage}
+
+# Use subset "sdpdam" to process the analysis
+
+sdpdam <- sdpdam %>%
+        select(EVTYPE,DMG) %>% 
+        group_by(EVTYPE) %>% 
+        summarise(Total.Damage = sum(DMG)) %>% 
+        arrange(desc(Total.Damage))
+
+# Total damage cost in Billion dollars
+sdpdam$Total.Damage <- sdpdam$Total.Damage / 1000000000
+
+# we only consider the top 20 weather events.
+sdpdam <- slice(sdpdam,1:20) 
+
+head(sdpdam)
+```
+
+```{r Crop Damage}
+
+# Use subset "sdcdam" to process the analysis
+
+sdcdam <- sdcdam %>%
+        select(EVTYPE,DMG) %>% 
+        group_by(EVTYPE) %>% 
+        summarise(Total.Damage = sum(DMG)) %>% 
+        arrange(desc(Total.Damage))
+
+# Total damage cost in Billion dollars
+sdcdam$Total.Damage <- sdcdam$Total.Damage / 1000000000
+
+# we only consider the top 20 weather events.
+sdcdam <- slice(sdcdam,1:20) 
+
+head(sdpdam)
+```
+
+```{r plot 3 and 4, echo=TRUE}
+
+sdpdam$EVTYPE <- factor(sdpdam$EVTYPE, levels = sdpdam$EVTYPE[order(-sdpdam$Total.Damage)])
+plot3 <- ggplot(sdpdam, aes(EVTYPE,Total.Damage),fill= Total.Damage)+geom_bar(stat = "identity",color="black",fill="yellow")+theme(axis.text.x = element_text(angle = 90, hjust = 1,vjust = 0.5))+labs(title="The total property damage cost by Event Type (in Billion Dollar)")+labs(x="Event Type",y="The total property damage cost (in Billion Dollar")+theme(plot.title = element_text(hjust = 0.5,size = 7, face = "bold"),axis.text.x= element_text(size=7),axis.title.x=element_text(size=8),axis.title.y=element_text(size=7))
+
+sdcdam$EVTYPE <- factor(sdcdam$EVTYPE, levels = sdcdam$EVTYPE[order(-sdcdam$Total.Damage)])
+plot4 <- ggplot(sdcdam, aes(EVTYPE,Total.Damage),fill=Total.Damage)+geom_bar(stat = "identity",color="black",fill="yellow")+theme(axis.text.x = element_text(angle = 90, hjust = 1,vjust = 0.5))+labs(title="The total crop damage cost by Event Type (in Billion Dollar)")+labs(x="Event Type",y="The total crop damage cost (in Billion Dollar")+theme(plot.title = element_text(hjust = 0.5,size = 7, face = "bold"),axis.text.x= element_text(size=7),axis.title.x=element_text(size=8),axis.title.y=element_text(size=7))
+
+grid.arrange(plot3, plot4, ncol=2)
+
+```
+
+```{r combine property and crop damage}
+
+# merge property and crop damage dataset
+sdcpdam <- rbind(sdcdam,sdpdam)
+
+sdcpdam <- sdcpdam %>% 
+        select(EVTYPE,Total.Damage) %>% 
+        group_by(EVTYPE) %>% 
+        summarise(Total.Damage = sum(Total.Damage)) %>% 
+        arrange(desc(Total.Damage))
+
+```
+
+```{r plot 5, echo=TRUE}
+
+sdcpdam$EVTYPE <- factor(sdcpdam$EVTYPE, levels = sdcpdam$EVTYPE[order(-sdcpdam$Total.Damage)])
+plot5 <- ggplot(sdcpdam, aes(EVTYPE,Total.Damage),fill= Total.Damage)+geom_bar(stat = "identity",color="black",fill="yellow")+theme(axis.text.x = element_text(angle = 90, hjust = 1,vjust = 0.5))+labs(title="The total property and crop damage cost by Event Type (in Billion Dollar)")+labs(x="Event Type",y="The total property and  crop damage cost (in Billion Dollar)")+theme(plot.title = element_text(hjust = 0.5,size = 10, face = "bold"),axis.text.x= element_text(size=7),axis.title.x=element_text(size=8),axis.title.y=element_text(size=7))
+
+plot5
+```
+
